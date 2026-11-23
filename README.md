@@ -1,6 +1,6 @@
 <picture>
   <source media="(prefers-reduced-motion: reduce)" srcset="./assets/banner-static.png">
-  <img src="./assets/banner.gif" alt="Hernán · Halleys22. Ideas con rumbo, código en órbita. Una pequeña exploración espacial en azul noche, verde bosque y naranja." width="100%">
+  <img src="./assets/banner.gif?v=2" alt="Hernán · Halleys22. Ideas con rumbo, código en órbita. Una pequeña exploración espacial en azul noche, verde bosque y naranja." width="100%">
 </picture>
 
 <p align="center">
@@ -25,7 +25,7 @@ Me interesan especialmente el **diseño de producto**, las interfaces claras y l
 
 ### Tecnologías que estoy explorando
 
-<img src="./assets/technologies.svg" alt="Java, JavaFX, MySQL, React, TypeScript, Flutter, Dart y Linux" width="100%">
+<img src="./assets/technologies.svg?v=2" alt="Java, JavaFX, MySQL, React, TypeScript, Flutter, Dart y Linux" width="100%">
 
 Trabajo con estas tecnologías en mis proyectos y ejercicios. Sigo reforzando fundamentos, practicando y documentando lo que aprendo.
 
