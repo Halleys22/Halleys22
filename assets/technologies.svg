@@ -1,0 +1,12 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="112" viewBox="0 0 1200 112" role="img" aria-labelledby="title">
+<title id="title">Tecnolog�as que estoy explorando: Java, JavaFX, MySQL, React, TypeScript, Flutter, Dart y Linux</title>
+<rect width="1200" height="112" rx="16" fill="#101e27"/>
+<g font-family="Segoe UI,Arial,sans-serif" text-anchor="middle">
+<g fill="#e8ac73" font-weight="700" font-size="26">
+<text x="75" y="48">J</text><text x="225" y="48">FX</text><text x="375" y="48">SQL</text><text x="525" y="48">?</text>
+<text x="675" y="48">TS</text><text x="825" y="48">F</text><text x="975" y="48">D</text><text x="1125" y="48">&gt;_</text>
+</g>
+<g fill="#d7e2df" font-size="19"><text x="75" y="83">Java</text><text x="225" y="83">JavaFX</text><text x="375" y="83">MySQL</text><text x="525" y="83">React</text><text x="675" y="83">TypeScript</text><text x="825" y="83">Flutter</text><text x="975" y="83">Dart</text><text x="1125" y="83">Linux</text></g>
+</g>
+<g stroke="#294048"><path d="M150 25v62M300 25v62M450 25v62M600 25v62M750 25v62M900 25v62M1050 25v62"/></g>
+</svg>
