@@ -5,10 +5,66 @@ using System.Drawing;
 using System.Drawing.Drawing2D;
 using System.Drawing.Imaging;
 using System.Collections.Generic;
+using System.Linq;
+using System.Runtime.InteropServices;
 
 // Original, code-drawn artwork. No external images, APIs, fonts or tracking.
 public static class BannerGenerator {
     const int W=1200, H=400, Frames=48;
+    static readonly Dictionary<int,byte> PixelCache=new Dictionary<int,byte>();
+    sealed class ColorBox {
+        public List<KeyValuePair<int,int>> Colors;
+        public int Weight, Channel, Range;
+        public ColorBox(List<KeyValuePair<int,int>> colors) {
+            Colors=colors; Weight=colors.Sum(p=>p.Value);
+            for(int channel=0;channel<3;channel++) {
+                int shift=channel*8, min=255,max=0;
+                foreach(var pair in colors) {int v=(pair.Key>>shift)&255;min=Math.Min(min,v);max=Math.Max(max,v);}
+                if(max-min>Range) {Range=max-min;Channel=channel;}
+            }
+        }
+        public Color Average() {
+            long r=0,g=0,b=0;
+            foreach(var p in Colors) {r+=((p.Key>>16)&255)*(long)p.Value;g+=((p.Key>>8)&255)*(long)p.Value;b+=(p.Key&255)*(long)p.Value;}
+            return Color.FromArgb((int)(r/Weight),(int)(g/Weight),(int)(b/Weight));
+        }
+    }
+    static byte[] Pixels(Bitmap image) {
+        var data=image.LockBits(new Rectangle(0,0,image.Width,image.Height),ImageLockMode.ReadOnly,PixelFormat.Format24bppRgb);
+        var pixels=new byte[data.Stride*image.Height];Marshal.Copy(data.Scan0,pixels,0,pixels.Length);image.UnlockBits(data);return pixels;
+    }
+    static Color[] Palette(Bitmap image) {
+        var histogram=new Dictionary<int,int>();var pixels=Pixels(image);
+        for(int i=0;i<pixels.Length;i+=3) {int rgb=(pixels[i+2]<<16)|(pixels[i+1]<<8)|pixels[i];int count;histogram.TryGetValue(rgb,out count);histogram[rgb]=count+1;}
+        var boxes=new List<ColorBox>{new ColorBox(histogram.ToList())};
+        while(boxes.Count<256) {
+            ColorBox box=boxes.Where(b=>b.Colors.Count>1).OrderByDescending(b=>b.Range*Math.Sqrt(b.Weight)).FirstOrDefault();
+            if(box==null) break;
+            int shift=box.Channel*8;
+            box.Colors.Sort((a,b)=>((a.Key>>shift)&255).CompareTo((b.Key>>shift)&255));
+            int sum=0,split=0;for(;split<box.Colors.Count-1;split++) {sum+=box.Colors[split].Value;if(sum>=box.Weight/2) {split++;break;}}
+            split=Math.Max(1,Math.Min(split,box.Colors.Count-1));
+            boxes.Remove(box);boxes.Add(new ColorBox(box.Colors.GetRange(0,split)));boxes.Add(new ColorBox(box.Colors.GetRange(split,box.Colors.Count-split)));
+        }
+        return boxes.Select(b=>b.Average()).ToArray();
+    }
+    static Bitmap Indexed(Bitmap image,Color[] palette) {
+        var target=new Bitmap(image.Width,image.Height,PixelFormat.Format8bppIndexed);
+        var targetPalette=target.Palette;for(int i=0;i<palette.Length;i++) targetPalette.Entries[i]=palette[i];target.Palette=targetPalette;
+        var source=Pixels(image);int sourceStride=((image.Width*3+3)/4)*4;
+        var data=target.LockBits(new Rectangle(0,0,image.Width,image.Height),ImageLockMode.WriteOnly,PixelFormat.Format8bppIndexed);
+        var dest=new byte[data.Stride*image.Height];
+        for(int y=0;y<image.Height;y++) for(int x=0;x<image.Width;x++) {
+            int offset=y*sourceStride+x*3,b=source[offset],g=source[offset+1],r=source[offset+2];int rgb=(r<<16)|(g<<8)|b;byte index;
+            if(!PixelCache.TryGetValue(rgb,out index)) {
+                int best=int.MaxValue;
+                for(int i=0;i<palette.Length;i++) {int dr=r-palette[i].R,dg=g-palette[i].G,db=b-palette[i].B;int distance=dr*dr+dg*dg+db*db;if(distance<best) {best=distance;index=(byte)i;}}
+                PixelCache[rgb]=index;
+            }
+            dest[y*data.Stride+x]=index;
+        }
+        Marshal.Copy(dest,0,data.Scan0,dest.Length);target.UnlockBits(data);return target;
+    }
     static Color C(string hex) { return ColorTranslator.FromHtml(hex); }
     static Brush B(string hex) { return new SolidBrush(C(hex)); }
     static Font F(float size, bool bold=false) { return new Font("Segoe UI",size,bold?FontStyle.Bold:FontStyle.Regular,GraphicsUnit.Pixel); }
@@ -51,10 +107,10 @@ public static class BannerGenerator {
                 g.DrawLine(p,W-40,H-20,W-20,H-20);g.DrawLine(p,W-20,H-20,W-20,H-40);
             }
             Text(g,"H A L L E Y S 2 2   /   E X P L O R A T I O N   L O G",54,51,15,"#9eb9ad");
-            Text(g,"Hern�n.",50,109,91,"#f1eadb",true);
+            Text(g,"Hernán.",50,109,91,"#f1eadb",true);
             using(var b=B("#e6a56d")) g.FillRectangle(b,56,220,56,3);
             Text(g,"Ideas con rumbo.",54,242,30,"#ecdfc9");
-            Text(g,"C�digo en �rbita.",54,280,30,"#9fbdb1");
+            Text(g,"Código en órbita.",54,280,30,"#9fbdb1");
             Text(g,"DAM  /  DESARROLLO  /  PRODUCTO",56,349,14,"#a1b6ae");
             // Orbital paths, a warm sun and a small forest world.
             using(var p=new Pen(C("#3b5a56"),1)) {
@@ -120,15 +176,17 @@ public static class BannerGenerator {
     }
     public static void Build(string assets) {
         Directory.CreateDirectory(assets);
+        PixelCache.Clear();Color[] palette;
+        using(var first=Render(0)) palette=Palette(first);
         using(var stream=File.Create(Path.Combine(assets,"banner.gif"))) using(var writer=new BinaryWriter(stream)) {
             writer.Write(Encoding.ASCII.GetBytes("GIF89a"));writer.Write((ushort)W);writer.Write((ushort)H);writer.Write(new byte[]{0x70,0,0});
             writer.Write(new byte[]{0x21,0xff,11});writer.Write(Encoding.ASCII.GetBytes("NETSCAPE2.0"));writer.Write(new byte[]{3,1,0,0,0});
             for(int frame=0;frame<Frames;frame++) using(var image=Render(frame)) {
                 if(frame==0) image.Save(Path.Combine(assets,"banner-static.png"),ImageFormat.Png);
                 using(var buffer=new MemoryStream()) {
-                    if(frame==0) {image.Save(buffer,ImageFormat.Gif);AppendFrame(writer,buffer.ToArray(),0,0);}
+                    if(frame==0) using(var indexed=Indexed(image,palette)) {indexed.Save(buffer,ImageFormat.Gif);AppendFrame(writer,buffer.ToArray(),0,0);}
                     else using(var crop=image.Clone(new Rectangle(740,35,440,290),PixelFormat.Format24bppRgb)) {
-                        crop.Save(buffer,ImageFormat.Gif);AppendFrame(writer,buffer.ToArray(),740,35);
+                        using(var indexed=Indexed(crop,palette)) indexed.Save(buffer,ImageFormat.Gif);AppendFrame(writer,buffer.ToArray(),740,35);
                     }
                 }
             }
